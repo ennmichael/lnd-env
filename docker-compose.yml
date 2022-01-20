@@ -1,0 +1,134 @@
+version: '2'
+
+x-lnd: &lnd
+  image: lnd
+  restart: unless-stopped
+  build:
+    context: ./src/lnd
+    dockerfile: dev.Dockerfile
+  environment:
+    - RPCUSER=user
+    - RPCPASS=pass
+    - NETWORK=regtest
+    - CHAIN
+    - DEBUG
+
+services:
+    bitcoind:
+      image: lnzap/bitcoind:22.0.0
+      container_name: bitcoind
+      volumes:
+        - bitcoin:/bitcoin
+      command: |
+        --regtest
+        --rpcuser=user
+        --rpcpassword=pass
+        --rpcport=43782
+        --rpcbind=0.0.0.0:43782
+        --rpcallowip=0.0.0.0/0
+        --port=39388
+        --whitelist=0.0.0.0/0
+        --zmqpubrawblock=tcp://0.0.0.0:28332
+        --zmqpubrawtx=tcp://0.0.0.0:28333
+        --deprecatedrpc=signrawtransaction
+        --txindex=1
+        --paytxfee=0.001
+
+    a:
+      <<: *lnd
+      container_name: lnd-a
+      entrypoint:
+        - ./start-lnd.sh
+        - --no-macaroons
+        - --alias=a
+        - --bitcoin.node=bitcoind
+        - --bitcoind.rpchost=bitcoind:43782
+        - --bitcoind.rpcuser=user
+        - --bitcoind.rpcpass=pass
+        - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
+        - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
+        - --bitcoin.basefee=1000
+        - --bitcoin.feerate=2250
+        - --bitcoin.defaultchanconfs=1
+        - --accept-keysend
+        - --protocol.wumbo-channels
+        - --noseedbackup
+        - --bitcoin.active
+        - --bitcoin.regtest
+          #- --coin-selection-strategy=largest
+        - --maxpendingchannels=1000
+      volumes:
+        - shared:/rpc
+        - va:/root/.lnd
+
+    b:
+      <<: *lnd
+      container_name: lnd-b
+      entrypoint:
+        - ./start-lnd.sh
+        - --no-macaroons
+        - --alias=b
+        - --bitcoin.node=bitcoind
+        - --bitcoind.rpchost=bitcoind:43782
+        - --bitcoind.rpcuser=user
+        - --bitcoind.rpcpass=pass
+        - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
+        - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
+        - --bitcoin.basefee=1000
+        - --bitcoin.feerate=2250
+        - --bitcoin.defaultchanconfs=1
+        - --accept-keysend
+        - --protocol.wumbo-channels
+        - --noseedbackup
+        - --bitcoin.active
+        - --bitcoin.regtest
+          #- --coin-selection-strategy=largest
+        - --maxpendingchannels=1000
+      volumes:
+        - shared:/rpc
+        - vb:/root/.lnd
+
+    c:
+      <<: *lnd
+      container_name: lnd-c
+      entrypoint:
+        - ./start-lnd.sh
+        - --no-macaroons
+        - --alias=b
+        - --bitcoin.node=bitcoind
+        - --bitcoind.rpchost=bitcoind:43782
+        - --bitcoind.rpcuser=user
+        - --bitcoind.rpcpass=pass
+        - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
+        - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
+        - --bitcoin.basefee=1000
+        - --bitcoin.feerate=2250
+        - --bitcoin.defaultchanconfs=1
+        - --accept-keysend
+        - --protocol.wumbo-channels
+        - --noseedbackup
+        - --bitcoin.active
+        - --bitcoin.regtest
+          #- --coin-selection-strategy=largest
+        - --maxpendingchannels=1000
+      volumes:
+        - shared:/rpc
+        - vc:/root/.lnd
+
+volumes:
+  # shared volume is need to store the btcd rpc certificates and use it within
+  # btcctl and lnd containers.
+  shared:
+    driver: local
+
+  # bitcoin volume is needed for maintaining blockchain persistence
+  # during btcd container recreation.
+  bitcoin:
+    driver: local
+
+  va:
+    driver: local
+  vb:
+    driver: local
+  vc:
+    driver: local
